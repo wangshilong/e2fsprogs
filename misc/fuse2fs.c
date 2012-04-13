@@ -2495,6 +2495,7 @@ out:
 
 static int count_buffer_space(char *name, char *value EXT2FS_ATTR((unused)),
 			      size_t value_len EXT2FS_ATTR((unused)),
+			      ext2_ino_t inode_num EXT2FS_ATTR((unused)),
 			      void *data)
 {
 	unsigned int *x = data;
@@ -2504,7 +2505,9 @@ static int count_buffer_space(char *name, char *value EXT2FS_ATTR((unused)),
 }
 
 static int copy_names(char *name, char *value EXT2FS_ATTR((unused)),
-		      size_t value_len EXT2FS_ATTR((unused)), void *data)
+		      size_t value_len EXT2FS_ATTR((unused)),
+		      ext2_ino_t inode_num EXT2FS_ATTR((unused)),
+		      void *data)
 {
 	char **b = data;
 
