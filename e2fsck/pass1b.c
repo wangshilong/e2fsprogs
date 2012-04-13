@@ -720,8 +720,8 @@ static void delete_file(e2fsck_t ctx, ext2_ino_t ino,
 						     delete_file_block, &pb);
 	if (pctx.errcode)
 		fix_problem(ctx, PR_1B_BLOCK_ITERATE, &pctx);
-	if (ctx->inode_bad_map)
-		ext2fs_unmark_inode_bitmap2(ctx->inode_bad_map, ino);
+	if (ctx->inode_badness)
+		e2fsck_mark_inode_bad(ctx, ino, 0);
 	if (ctx->inode_reg_map)
 		ext2fs_unmark_inode_bitmap2(ctx->inode_reg_map, ino);
 	ext2fs_unmark_inode_bitmap2(ctx->inode_dir_map, ino);
