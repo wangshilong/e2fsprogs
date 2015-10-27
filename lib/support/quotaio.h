@@ -46,9 +46,10 @@ typedef int64_t qsize_t;	/* Type in which we store size limitations */
 enum quota_type {
 	USRQUOTA = 0,
 	GRPQUOTA = 1,
+	PRJQUOTA = 2,
 };
 
-#define MAXQUOTAS 2
+#define MAXQUOTAS 3
 
 #if MAXQUOTAS > 32
 #error "cannot have more than 32 quota types to fit in qtype_bits"
@@ -56,7 +57,8 @@ enum quota_type {
 
 #define QUOTA_USR_BIT (1 << USRQUOTA)
 #define QUOTA_GRP_BIT (1 << GRPQUOTA)
-#define QUOTA_ALL_BIT (QUOTA_USR_BIT | QUOTA_GRP_BIT)
+#define QUOTA_PRJ_BIT (1 << PRJQUOTA)
+#define QUOTA_ALL_BIT (QUOTA_USR_BIT | QUOTA_GRP_BIT | QUOTA_PRJ_BIT)
 
 typedef struct quota_ctx *quota_ctx_t;
 struct dict_t;
@@ -72,7 +74,8 @@ struct quota_ctx {
  */
 #define INITQMAGICS {\
 	0xd9c01f11,	/* USRQUOTA */\
-	0xd9c01927	/* GRPQUOTA */\
+	0xd9c01927,	/* GRPQUOTA */\
+	0xd9c03f14      /* PRJQUOTA */\
 }
 
 /* Size of blocks in which are counted size limits in generic utility parts */
@@ -240,6 +243,8 @@ static inline ext2_ino_t *quota_sb_inump(struct ext2_super_block *sb, enum quota
 			return &sb->s_usr_quota_inum;
 		case GRPQUOTA:
 			return &sb->s_grp_quota_inum;
+		case PRJQUOTA:
+			return &sb->s_prj_quota_inum;
 		default:
 			return NULL;
 	}

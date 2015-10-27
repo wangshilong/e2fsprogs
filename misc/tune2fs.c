@@ -1500,6 +1500,10 @@ static void parse_quota_opts(const char *opts)
 			quota_enable[GRPQUOTA] = QOPT_ENABLE;
 		} else if (strcmp(token, "^grpquota") == 0) {
 			quota_enable[GRPQUOTA] = QOPT_DISABLE;
+		} else if (strcmp(token, "prjquota") == 0) {
+			quota_enable[PRJQUOTA] = QOPT_ENABLE;
+		} else if (strcmp(token, "^prjquota") == 0) {
+			quota_enable[PRJQUOTA] = QOPT_DISABLE;
 		} else {
 			fputs(_("\nBad quota options specified.\n\n"
 				"Following valid quota options are available "

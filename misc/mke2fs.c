@@ -1017,6 +1017,8 @@ static void parse_extended_opts(struct ext2_super_block *param,
 				quotatype_bits = QUOTA_USR_BIT;
 			} else if (!strncmp(arg, "grp", 3)) {
 				quotatype_bits = QUOTA_GRP_BIT;
+			} else if (!strncmp(arg, "prj", 3)) {
+				quotatype_bits = QUOTA_PRJ_BIT;
 			} else {
 				fprintf(stderr,
 					_("Invalid quotatype parameter: %s\n"),
@@ -2960,6 +2962,10 @@ int main (int argc, char *argv[])
 		printf("\n");
 		exit(ext2fs_close_free(&fs) ? 1 : 0);
 	}
+
+	if (EXT2_HAS_RO_COMPAT_FEATURE(&fs_param,
+				       EXT4_FEATURE_RO_COMPAT_QUOTA))
+		fs->super->s_first_ino = EXT2_GOOD_OLD_FIRST_INO + 1;
 
 	if (bad_blocks_filename)
 		read_bb_file(fs, &bb_list, bad_blocks_filename);

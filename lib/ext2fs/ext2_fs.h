@@ -52,6 +52,7 @@
 #define EXT2_JOURNAL_INO	 8	/* Journal inode */
 #define EXT2_EXCLUDE_INO	 9	/* The "exclude" inode, for snapshots */
 #define EXT4_REPLICA_INO	10	/* Used by non-upstream feature */
+#define EXT4_PRJ_QUOTA_INO	11	/* Project quota inode */
 
 /* First non-reserved inode for old ext2 filesystems */
 #define EXT2_GOOD_OLD_FIRST_INO	11
@@ -473,6 +474,7 @@ struct ext2_inode_large {
 	__u32	i_crtime;	/* File creation time */
 	__u32	i_crtime_extra;	/* extra File creation time (nsec << 2 | epoch)*/
 	__u32	i_version_hi;	/* high 32 bits for 64-bit version */
+	__u32   i_projid;       /* Project ID */
 };
 
 #define EXT4_INODE_CSUM_HI_EXTRA_END	\
@@ -506,6 +508,7 @@ struct ext2_inode_large {
 
 #define inode_uid(inode)	((inode).i_uid | (inode).osd2.linux2.l_i_uid_high << 16)
 #define inode_gid(inode)	((inode).i_gid | (inode).osd2.linux2.l_i_gid_high << 16)
+#define inode_projid(large_inode) ((large_inode).i_projid)
 #define ext2fs_set_i_uid_high(inode,x) ((inode).osd2.linux2.l_i_uid_high = (x))
 #define ext2fs_set_i_gid_high(inode,x) ((inode).osd2.linux2.l_i_gid_high = (x))
 
@@ -719,7 +722,8 @@ struct ext2_super_block {
 	__u8	s_encrypt_algos[4];	/* Encryption algorithms in use  */
 	__u8	s_encrypt_pw_salt[16];	/* Salt used for string2key algorithm */
 	__le32	s_lpf_ino;		/* Location of the lost+found inode */
-	__le32	s_reserved[100];	/* Padding to the end of the block */
+	__u32   s_prj_quota_inum;	/* inode number of project quota file */
+	__le32	s_reserved[99];		/* Padding to the end of the block */
 	__u32	s_checksum;		/* crc32c(superblock) */
 };
 

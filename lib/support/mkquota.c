@@ -233,11 +233,16 @@ static int dict_uint_cmp(const void *a, const void *b)
 
 static inline qid_t get_qid(struct ext2_inode *inode, enum quota_type qtype)
 {
+	struct ext2_inode_large *large_inode;
+
 	switch (qtype) {
 		case USRQUOTA:
 			return inode_uid(*inode);
 		case GRPQUOTA:
 			return inode_gid(*inode);
+		case PRJQUOTA:
+			large_inode = (struct ext2_inode_large *) inode;
+			return inode_projid(*large_inode);
 		default:
 			return 0;
 	}

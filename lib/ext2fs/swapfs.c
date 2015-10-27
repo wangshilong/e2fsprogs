@@ -320,6 +320,8 @@ void ext2fs_swap_inode_full(ext2_filsys fs, struct ext2_inode_large *t,
 		t->i_crtime_extra = ext2fs_swab32(f->i_crtime_extra);
 	if (extra_isize >= 28)
 		t->i_version_hi = ext2fs_swab32(f->i_version_hi);
+	if (extra_isize >= 32)
+		t->i_projid = ext2fs_swab32(f->i_projid);
 
 	i = sizeof(struct ext2_inode) + extra_isize + sizeof(__u32);
 	if (bufsize < (int) i)

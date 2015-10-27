@@ -20,7 +20,11 @@
 #include "common.h"
 #include "quotaio.h"
 
-static const char * const extensions[MAXQUOTAS] = {"user", "group"};
+static const char * const extensions[MAXQUOTAS] = {
+	[USRQUOTA] = "user",
+	[GRPQUOTA] = "group",
+	[PRJQUOTA] = "project",
+};
 static const char * const basenames[] = {
 	"",		/* undefined */
 	"quota",	/* QFMT_VFS_OLD */
@@ -55,6 +59,9 @@ ext2_ino_t quota_type2inum(enum quota_type qtype)
 		break;
 	case GRPQUOTA:
 		return EXT4_GRP_QUOTA_INO;
+		break;
+	case PRJQUOTA:
+		return EXT4_PRJ_QUOTA_INO;
 		break;
 	default:
 		return 0;
