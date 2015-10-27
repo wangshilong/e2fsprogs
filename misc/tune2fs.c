@@ -95,7 +95,7 @@ static int stride_set, stripe_width_set;
 static char *extended_cmd;
 static unsigned long new_inode_size;
 static char *ext_mount_opts;
-static int usrquota, grpquota;
+static int quota_enable[MAXQUOTAS];
 static int rewrite_checksums;
 static int feature_64bit;
 static int fsck_requested;
@@ -963,6 +963,7 @@ static int update_feature_set(ext2_filsys fs, char *features)
 	int		type_err;
 	unsigned int	mask_err;
 	errcode_t	err;
+	enum quota_type qtype;
 
 #define FEATURE_ON(type, mask) (!(old_features[(type)] & (mask)) && \
 				((&sb->s_feature_compat)[(type)] & (mask)))
@@ -1279,9 +1280,9 @@ mmp_error:
 		 */
 		if (!Q_flag) {
 			Q_flag = 1;
-			/* Enable both user quota and group quota by default */
-			usrquota = QOPT_ENABLE;
-			grpquota = QOPT_ENABLE;
+			/* Enable all quota by default */
+			for (qtype = 0; qtype < MAXQUOTAS; qtype++)
+				quota_enable[qtype] = QOPT_ENABLE;
 		}
 		sb->s_feature_ro_compat &= ~EXT4_FEATURE_RO_COMPAT_QUOTA;
 	}
@@ -1296,9 +1297,9 @@ mmp_error:
 			fputs(_("\nWarning: '^quota' option overrides '-Q'"
 				"arguments.\n"), stderr);
 		Q_flag = 1;
-		/* Disable both user quota and group quota by default */
-		usrquota = QOPT_DISABLE;
-		grpquota = QOPT_DISABLE;
+		/* Disable all quota by default */
+		for (qtype = 0; qtype < MAXQUOTAS; qtype++)
+			quota_enable[qtype] = QOPT_DISABLE;
 	}
 
 	if (FEATURE_ON(E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_ENCRYPT)) {
@@ -1421,42 +1422,51 @@ static void handle_quota_options(ext2_filsys fs)
 {
 	quota_ctx_t qctx;
 	ext2_ino_t qf_ino;
+	enum quota_type qtype;
+	int enable = 0;
 
-	if (!usrquota && !grpquota)
+	for (qtype = 0 ; qtype < MAXQUOTAS; qtype++)
+		if (quota_enable[qtype] != 0)
+			break;
+	if (qtype == MAXQUOTAS)
 		/* Nothing to do. */
 		return;
 
-	quota_init_context(&qctx, fs, -1);
-
-	if (usrquota == QOPT_ENABLE || grpquota == QOPT_ENABLE)
+	quota_init_context(&qctx, fs, QUOTA_ALL_BIT);
+	for (qtype = 0 ; qtype < MAXQUOTAS; qtype++) {
+		if (quota_enable[qtype] == QOPT_ENABLE) {
+			enable = 1;
+			break;
+		}
+	}
+	if (enable)
 		quota_compute_usage(qctx);
 
-	if (usrquota == QOPT_ENABLE && !fs->super->s_usr_quota_inum) {
-		if ((qf_ino = quota_file_exists(fs, USRQUOTA)) > 0)
-			quota_update_limits(qctx, qf_ino, USRQUOTA);
-		quota_write_inode(qctx, USRQUOTA);
-	} else if (usrquota == QOPT_DISABLE) {
-		quota_remove_inode(fs, USRQUOTA);
-	}
-
-	if (grpquota == QOPT_ENABLE && !fs->super->s_grp_quota_inum) {
-		if ((qf_ino = quota_file_exists(fs, GRPQUOTA)) > 0)
-			quota_update_limits(qctx, qf_ino, GRPQUOTA);
-		quota_write_inode(qctx, GRPQUOTA);
-	} else if (grpquota == QOPT_DISABLE) {
-		quota_remove_inode(fs, GRPQUOTA);
-	}
+	for (qtype = 0 ; qtype < MAXQUOTAS; qtype++) {
+		if (quota_enable[qtype] == QOPT_ENABLE &&
+		    *quota_sb_inump(fs->super, qtype) != 0) {
+			if ((qf_ino = quota_file_exists(fs, qtype)) > 0)
+				quota_update_limits(qctx, qf_ino, qtype);
+			quota_write_inode(qctx, 1 << qtype);
+		} else if (quota_enable[qtype] == QOPT_DISABLE) {
+			quota_remove_inode(fs, qtype);
+		}
+ 	}
 
 	quota_release_context(&qctx);
 
-	if ((usrquota == QOPT_ENABLE) || (grpquota == QOPT_ENABLE)) {
+	if (enable) {
 		fs->super->s_feature_ro_compat |= EXT4_FEATURE_RO_COMPAT_QUOTA;
 		ext2fs_mark_super_dirty(fs);
-	} else if (!fs->super->s_usr_quota_inum &&
-		   !fs->super->s_grp_quota_inum) {
-		fs->super->s_feature_ro_compat &= ~EXT4_FEATURE_RO_COMPAT_QUOTA;
-		ext2fs_mark_super_dirty(fs);
-	}
+	} else {
+		for (qtype = 0 ; qtype < MAXQUOTAS; qtype++)
+			if (*quota_sb_inump(fs->super, qtype) != 0)
+				break;
+		if (qtype == MAXQUOTAS) {
+			fs->super->s_feature_ro_compat &= ~EXT4_FEATURE_RO_COMPAT_QUOTA;
+			ext2fs_mark_super_dirty(fs);
+		}
+ 	}
 
 	return;
 }
@@ -1483,13 +1493,13 @@ static void parse_quota_opts(const char *opts)
 		}
 
 		if (strcmp(token, "usrquota") == 0) {
-			usrquota = QOPT_ENABLE;
+			quota_enable[USRQUOTA] = QOPT_ENABLE;
 		} else if (strcmp(token, "^usrquota") == 0) {
-			usrquota = QOPT_DISABLE;
+			quota_enable[USRQUOTA] = QOPT_DISABLE;
 		} else if (strcmp(token, "grpquota") == 0) {
-			grpquota = QOPT_ENABLE;
+			quota_enable[GRPQUOTA] = QOPT_ENABLE;
 		} else if (strcmp(token, "^grpquota") == 0) {
-			grpquota = QOPT_DISABLE;
+			quota_enable[GRPQUOTA] = QOPT_DISABLE;
 		} else {
 			fputs(_("\nBad quota options specified.\n\n"
 				"Following valid quota options are available "

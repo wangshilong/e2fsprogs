@@ -954,6 +954,28 @@ out:
 	}
 }
 
+static int quota_inum_is_super(struct ext2_super_block *sb, ext2_ino_t ino)
+{
+	enum quota_type qtype;
+
+	for (qtype = 0; qtype < MAXQUOTAS; qtype++)
+		if (*quota_sb_inump(sb, qtype) == ino)
+			return 1;
+
+	return 0;
+}
+
+static int quota_inum_is_reserved(ext2_ino_t ino)
+{
+	enum quota_type qtype;
+
+	for (qtype = 0; qtype < MAXQUOTAS; qtype++)
+		if (quota_type2inum(qtype) == ino)
+			return 1;
+
+	return 0;
+}
+
 void e2fsck_pass1(e2fsck_t ctx)
 {
 	int	i;
@@ -1504,13 +1526,11 @@ void e2fsck_pass1(e2fsck_t ctx)
 							inode_size, "pass1");
 				failed_csum = 0;
 			}
-		} else if ((ino == EXT4_USR_QUOTA_INO) ||
-			   (ino == EXT4_GRP_QUOTA_INO)) {
+		} else if (quota_inum_is_reserved(ino)) {
 			ext2fs_mark_inode_bitmap2(ctx->inode_used_map, ino);
 			if ((fs->super->s_feature_ro_compat &
 					EXT4_FEATURE_RO_COMPAT_QUOTA) &&
-			    ((fs->super->s_usr_quota_inum == ino) ||
-			     (fs->super->s_grp_quota_inum == ino))) {
+			    quota_inum_is_super(fs->super, ino)) {
 				if (!LINUX_S_ISREG(inode->i_mode) &&
 				    fix_problem(ctx, PR_1_QUOTA_BAD_MODE,
 							&pctx)) {
