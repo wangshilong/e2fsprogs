@@ -2163,10 +2163,23 @@ static errcode_t e2fsck_pass1_copy_fs(ext2_filsys dest, ext2_filsys src)
 		src->dblist = NULL;
 	}
 
+	if (src->badblocks) {
+		retval = ext2fs_badblocks_copy(src->badblocks, &dest->badblocks);
+		if (retval)
+			goto out_dblist;
+
+		ext2fs_badblocks_list_free(src->badblocks);
+		src->badblocks = NULL;
+	}
 	return 0;
+
+out_dblist:
+	ext2fs_free_dblist(dest->dblist);
+	dest->dblist = NULL;
+	return retval;
 }
 
-static int e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
+static int _e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 {
 	errcode_t	retval = 0;
 
@@ -2178,6 +2191,32 @@ static int e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 	PASS1_COPY_FS_BITMAP(dest, src, inode_map);
 	PASS1_COPY_FS_BITMAP(dest, src, block_map);
 
+	if (src->dblist) {
+		retval = ext2fs_copy_dblist(src->dblist, &dest->dblist);
+		if (retval)
+			return retval;
+		/* The ext2fs_copy_dblist() uses the src->fs as the fs */
+		dest->dblist->fs = dest;
+	}
+
+	if (src->badblocks) {
+		retval = ext2fs_badblocks_copy(src->badblocks, &dest->badblocks);
+		if (retval)
+			goto out_dblist;
+	}
+	return 0;
+out_dblist:
+	ext2fs_free_dblist(dest->dblist);
+	dest->dblist = NULL;
+	return retval;
+}
+
+static int e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
+{
+	errcode_t	retval;
+
+	retval = _e2fsck_pass1_merge_fs(dest, src);
+
 	/* icache will be rebuilt if needed, so do not copy from @src */
 	if (src->icache) {
 		ext2fs_free_inode_cache(src->icache);
@@ -2185,16 +2224,16 @@ static int e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 	}
 	dest->icache = NULL;
 
-	if (dest->dblist) {
-		retval = ext2fs_copy_dblist(src->dblist, &dest->dblist);
-		if (retval == 0) {
-			/* The ext2fs_copy_dblist() uses the src->fs as the fs */
-			dest->dblist->fs = dest;
-		}
-
+	if (src->dblist) {
 		ext2fs_free_dblist(src->dblist);
 		src->dblist = NULL;
 	}
+
+	if (src->badblocks) {
+		ext2fs_badblocks_list_free(src->badblocks);
+		src->badblocks = NULL;
+	}
+
 	return retval;
 }
 
