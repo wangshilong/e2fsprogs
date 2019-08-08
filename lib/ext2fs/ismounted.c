@@ -510,7 +510,8 @@ static errcode_t check_if_lustre_mounted(const char *device, int *mount_flags)
 
 	if (realpath(device, real_device) == NULL) {
 		fprintf(stderr, "Cannot resolve path %s\n", device);
-		return EXT2_ET_BAD_DEVICE_NAME;
+		rc = EXT2_ET_BAD_DEVICE_NAME;
+		goto out_free;
 	}
 
 	rc = check_lustre_proc_vals("/proc/fs/lustre/osd-ldiskfs", real_device);
@@ -520,9 +521,10 @@ static errcode_t check_if_lustre_mounted(const char *device, int *mount_flags)
 	if (rc)
 		*mount_flags |= EXT2_MF_MOUNTED;
 
+out_free:
 	free(real_device);
 
-	return 0;
+	return rc;
 }
 
 
