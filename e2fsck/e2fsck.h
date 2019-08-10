@@ -244,6 +244,7 @@ struct e2fsck_struct {
 	ino_t			 free_inodes;
 	int			 mount_flags;
 	int			 openfs_flags;
+	io_manager		 io_manager;
 	blkid_cache		 blkid; /* blkid cache */
 #ifdef HAVE_SETJMP_H
 	jmp_buf			abort_loc;
