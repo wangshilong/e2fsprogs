@@ -2115,7 +2115,37 @@ do {									\
     }									\
 } while (0)
 
-static errcode_t e2fsck_pass1_copy_fs(ext2_filsys dest, ext2_filsys src)
+static errcode_t pass1_open_io_channel(ext2_filsys fs,
+				       const char *io_options,
+				       io_manager manager, int flags)
+{
+	errcode_t	retval;
+	unsigned int	io_flags = 0;
+
+	if (flags & EXT2_FLAG_RW)
+		io_flags |= IO_FLAG_RW;
+	if (flags & EXT2_FLAG_EXCLUSIVE)
+		io_flags |= IO_FLAG_EXCLUSIVE;
+	if (flags & EXT2_FLAG_DIRECT_IO)
+		io_flags |= IO_FLAG_DIRECT_IO;
+	retval = manager->open(fs->device_name, io_flags, &fs->io);
+	if (retval)
+		return retval;
+
+	if (io_options &&
+	    (retval = io_channel_set_options(fs->io, io_options)))
+		goto out_close;
+	fs->image_io = fs->io;
+	fs->io->app_data = fs;
+
+	return 0;
+out_close:
+	io_channel_close(fs->io);
+	return retval;
+}
+
+static errcode_t e2fsck_pass1_copy_fs(ext2_filsys dest, e2fsck_t src_context,
+				      ext2_filsys src)
 {
 	errcode_t	retval;
 
@@ -2153,6 +2183,33 @@ static errcode_t e2fsck_pass1_copy_fs(ext2_filsys dest, ext2_filsys src)
 		ext2fs_badblocks_list_free(src->badblocks);
 		src->badblocks = NULL;
 	}
+
+	/* disable it for now */
+	src_context->openfs_flags &= ~EXT2_FLAG_EXCLUSIVE;
+	retval = pass1_open_io_channel(dest, src_context->io_options,
+				       src_context->io_manager,
+				       src_context->openfs_flags);
+	if (retval)
+		goto out_dblist;
+
+	/* Block size might not be default */
+	io_channel_set_blksize(dest->io, src->io->block_size);
+	ehandler_init(dest->io);
+
+	assert(dest->io->magic == src->io->magic);
+	assert(dest->io->manager == src->io->manager);
+	assert(strcmp(dest->io->name, src->io->name) == 0);
+	assert(dest->io->block_size == src->io->block_size);
+	assert(dest->io->read_error == src->io->read_error);
+	assert(dest->io->write_error == src->io->write_error);
+	assert(dest->io->refcount == src->io->refcount);
+	assert(dest->io->flags == src->io->flags);
+	assert(dest->io->app_data == dest);
+	assert(src->io->app_data == src);
+	assert(dest->io->align == src->io->align);
+
+	/* The data should be written to disk immediately */
+	dest->io->flags |= CHANNEL_FLAGS_WRITETHROUGH;
 	return 0;
 
 out_dblist:
@@ -2163,9 +2220,15 @@ out_dblist:
 
 static int _e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 {
-	errcode_t	retval = 0;
+	errcode_t retval = 0;
+	io_channel dest_io;
+	io_channel dest_image_io;
 
+	dest_io = dest->io;
+	dest_image_io = dest->image_io;
 	memcpy(dest, src, sizeof(struct struct_ext2_filsys));
+	dest->io = dest_io;
+	dest->image_io = dest_image_io;
 	/*
 	 * PASS1_COPY_FS_BITMAP might return directly from this function,
 	 * so please do NOT leave any garbage behind after returning.
@@ -2186,6 +2249,7 @@ static int _e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 		if (retval)
 			goto out_dblist;
 	}
+	io_channel_close(src->io);
 	return 0;
 out_dblist:
 	ext2fs_free_dblist(dest->dblist);
@@ -2252,7 +2316,8 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx, e2fsck_t *thre
 		goto out_context;
 	}
 
-	retval = e2fsck_pass1_copy_fs(thread_fs, global_fs);
+	io_channel_flush_cleanup(global_fs->io);
+	retval = e2fsck_pass1_copy_fs(thread_fs, global_ctx, global_fs);
 	if (retval) {
 		com_err(global_ctx->program_name, retval, "while copying fs");
 		goto out_fs;
