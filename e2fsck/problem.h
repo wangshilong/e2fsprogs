@@ -735,6 +735,9 @@ struct problem_context {
 /* Symlink missing NUL terminator */
 #define PR_1_SYMLINK_NUL			0x010090
 
+/* Failed to goto block group */
+#define PR_1_SCAN_GOTO				0x0100A0
+
 /*
  * Pass 1b errors
  */
