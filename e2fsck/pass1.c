@@ -1435,6 +1435,8 @@ void _e2fsck_pass1(e2fsck_t ctx)
 		}
 		if (!ino)
 			break;
+		if (ctx->global_ctx)
+		        ctx->thread_info.et_inode_number++;
 		pctx.ino = ino;
 		pctx.inode = inode;
 		ctx->stashed_ino = ino;
@@ -2362,7 +2364,12 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx,
 	else
 		tinfo->et_group_end = average_group * (thread_index + 1);
 	tinfo->et_group_next = tinfo->et_group_start;
-
+	tinfo->et_inode_number = 0;
+	tinfo->et_log_buf[0] = '\0';
+	tinfo->et_log_length = 0;
+	if (thread_context->options & E2F_OPT_MULTITHREAD)
+		log_out(thread_context, _("Scan group range [%d, %d)\n"),
+			tinfo->et_group_start, tinfo->et_group_end);
 	thread_context->fs = thread_fs;
 	*thread_ctx = thread_context;
 	return 0;
@@ -2403,6 +2410,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	global_ctx->fs = global_fs;
 	global_ctx->logf = global_logf;
 	global_ctx->problem_logf = global_problem_logf;
+	global_ctx->global_ctx = NULL;
 
 	/*
 	 * PASS1_COPY_CTX_BITMAP might return directly from this function,
@@ -2489,6 +2497,12 @@ static void *e2fsck_pass1_thread(void *arg)
 	_e2fsck_pass1(thread_ctx);
 
 out:
+	if (thread_ctx->options & E2F_OPT_MULTITHREAD)
+		log_out(thread_ctx,
+			_("Scanned group range [%lu, %lu), inodes %lu\n"),
+			thread_ctx->thread_info.et_group_start,
+			thread_ctx->thread_info.et_group_end,
+			thread_ctx->thread_info.et_inode_number);
 	return NULL;
 }
 
@@ -2616,6 +2630,7 @@ static errcode_t scan_callback(ext2_filsys fs,
 
 	if (ctx->global_ctx) {
 		tinfo = &ctx->thread_info;
+		//printf("iii group %d finished\n", tinfo->et_group_next);
 		tinfo->et_group_next++;
 		if (tinfo->et_group_next >= tinfo->et_group_end)
 			return EXT2_ET_SCAN_FINISHED;
