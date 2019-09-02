@@ -2431,6 +2431,22 @@ out_context:
 	return retval;
 }
 
+static void e2fsck_pass1_merge_dir_info(e2fsck_t global_ctx, e2fsck_t thread_ctx)
+{
+	if (thread_ctx->dir_info == NULL)
+		return;
+
+	if (global_ctx->dir_info == NULL) {
+		/* TODO: tdb needs to be handled properly */
+		global_ctx->dir_info = thread_ctx->dir_info;
+		thread_ctx->dir_info = NULL;
+		return;
+	}
+
+	e2fsck_merge_dir_info(global_ctx, thread_ctx->dir_info,
+			      global_ctx->dir_info);
+}
+
 static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 {
 	errcode_t	 retval;
@@ -2439,6 +2455,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	ext2_filsys	 global_fs = global_ctx->fs;
 	FILE		*global_logf = global_ctx->logf;
 	FILE		*global_problem_logf = global_ctx->problem_logf;
+	struct dir_info_db *dir_info = global_ctx->dir_info;
 	ext2fs_inode_bitmap inode_used_map = global_ctx->inode_used_map;
 	ext2fs_inode_bitmap inode_dir_map = global_ctx->inode_dir_map;
 	ext2fs_inode_bitmap inode_bb_map = global_ctx->inode_bb_map;
@@ -2470,6 +2487,8 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	global_ctx->block_dup_map = block_dup_map;
 	global_ctx->block_ea_map = block_ea_map;
 	global_ctx->block_metadata_map = block_metadata_map;
+	global_ctx->dir_info = dir_info;
+	e2fsck_pass1_merge_dir_info(global_ctx, thread_ctx);
 
 	/* Keep the global singal flags*/
 	global_ctx->flags |= (flags & E2F_FLAG_SIGNAL_MASK) |
