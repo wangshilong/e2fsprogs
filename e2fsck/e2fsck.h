@@ -545,6 +545,7 @@ extern struct dx_dir_info *e2fsck_get_dx_dir_info(e2fsck_t ctx, ext2_ino_t ino);
 extern void e2fsck_free_dx_dir_info(e2fsck_t ctx);
 extern int e2fsck_get_num_dx_dirinfo(e2fsck_t ctx);
 extern struct dx_dir_info *e2fsck_dx_dir_info_iter(e2fsck_t ctx, int *control);
+extern void e2fsck_merge_dx_dir(e2fsck_t global_ctx, e2fsck_t thread_ctx);
 
 /* ea_refcount.c */
 typedef __u64 ea_key_t;
