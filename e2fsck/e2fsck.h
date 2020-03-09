@@ -490,6 +490,7 @@ struct e2fsck_struct {
 	__u32			fs_fragmented_dir;
 	__u32			large_files;
 	__u32			extent_depth_count[MAX_EXTENT_DEPTH_COUNT];
+	__u32			fs_num_threads;
 	/* serialize fix operation for multiple threads */
 	pthread_mutex_t		 fs_fix_mutex;
 	/* protect block_found_map, block_dup_map */
