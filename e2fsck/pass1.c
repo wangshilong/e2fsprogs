@@ -3114,10 +3114,13 @@ static void init_ext2_max_sizes()
 static void e2fsck_pass1_multithread(e2fsck_t global_ctx)
 {
 	struct e2fsck_thread_info	*infos = NULL;
-	int				 num_threads = 1;
+	int num_threads = global_ctx->fs_num_threads;
 	errcode_t			 retval;
 	unsigned flexbg_size = 1;
 	int max_threads;
+
+	if (num_threads < 1)
+		num_threads = 1;
 
 	retval = _e2fsck_pass1_prepare(global_ctx);
 	if (retval)
@@ -3136,11 +3139,12 @@ static void e2fsck_pass1_multithread(e2fsck_t global_ctx)
 		int times = max_threads / num_threads;
 
 		if (times == 0)
-			num_threads = 1;
+			num_threads = max_threads;
 		else
 			num_threads = max_threads / times;
 	}
 
+	global_ctx->fs_num_threads = num_threads;
 	init_ext2_max_sizes();
 	retval = e2fsck_pass1_threads_start(&infos, num_threads, global_ctx);
 	if (retval) {
