@@ -498,6 +498,7 @@ struct e2fsck_struct {
 	__u32			large_files;
 	__u32			extent_depth_count[MAX_EXTENT_DEPTH_COUNT];
 #ifdef CONFIG_PFSCK
+	__u32			 fs_num_threads;
 	/* serialize fix operation for multiple threads */
 	pthread_mutex_t		 fs_fix_mutex;
 	/* protect block_found_map, block_dup_map */
@@ -725,6 +726,7 @@ int check_backup_super_block(e2fsck_t ctx);
 void check_resize_inode(e2fsck_t ctx);
 
 /* util.c */
+#define E2FSCK_MAX_THREADS	(65536)
 extern void *e2fsck_allocate_memory(e2fsck_t ctx, unsigned long size,
 				    const char *description);
 extern int ask(e2fsck_t ctx, const char * string, int def);

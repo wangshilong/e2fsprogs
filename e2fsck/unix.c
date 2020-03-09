@@ -909,6 +909,10 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 #ifdef CONFIG_JBD_DEBUG
 	char 		*jbd_debug;
 #endif
+#ifdef CONFIG_PFSCK
+	char		*pm;
+	unsigned long	thread_num;
+#endif
 	unsigned long long phys_mem_kb;
 
 	retval = e2fsck_allocate_context(&ctx);
@@ -950,7 +954,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	ctx->inode_badness_threshold = BADNESS_THRESHOLD;
 
 #ifdef CONFIG_PFSCK
-	while ((c = getopt(argc, argv, "pamnyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDkz:")) != EOF)
+	while ((c = getopt(argc, argv, "pam:nyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDkz:")) != EOF)
 #else
 	while ((c = getopt(argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDkz:")) != EOF)
 #endif
@@ -996,7 +1000,18 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			break;
 #ifdef CONFIG_PFSCK
 		case 'm':
+			thread_num = strtoul(optarg, &pm, 0);
+			if (*pm)
+				fatal_error(ctx,
+					_("Invalid multiple thread num.\n"));
+			if (thread_num > E2FSCK_MAX_THREADS) {
+				fprintf(stderr,
+					_("threads %lu too large (max %lu)\n"),
+					thread_num, E2FSCK_MAX_THREADS);
+				fatal_error(ctx, 0);
+			}
 			ctx->options |= E2F_OPT_MULTITHREAD;
+			ctx->fs_num_threads = thread_num;
 			break;
 #endif
 		case 'n':
