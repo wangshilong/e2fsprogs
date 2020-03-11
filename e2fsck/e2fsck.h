@@ -201,6 +201,7 @@ struct resource_track {
 #define E2F_FLAG_PROBLEMS_FIXED	0x4000 /* At least one problem was fixed */
 #define E2F_FLAG_ALLOC_OK	0x8000 /* Can we allocate blocks? */
 #define E2F_FLAG_EXPAND_EISIZE	0x10000 /* Expand the inodes (i_extra_isize) */
+#define E2F_FLAG_DUP_BLOCK	0x20000 /* dup block found during pass1 */
 
 #define E2F_RESET_FLAGS (E2F_FLAG_TIME_INSANE | E2F_FLAG_PROBLEMS_FIXED)
 
@@ -494,7 +495,7 @@ struct e2fsck_struct {
 	/* serialize fix operation for multiple threads */
 	pthread_mutex_t		 fs_fix_mutex;
 	/* protect block_found_map, block_dup_map */
-	pthread_mutex_t		 fs_block_map_mutex;
+	pthread_rwlock_t	 fs_block_map_rwlock;
 	/* protect ea related structure */
 	pthread_mutex_t		 fs_ea_mutex;
 };
