@@ -2929,6 +2929,7 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx,
 	}
 	memcpy(thread_context, global_ctx, sizeof(struct e2fsck_struct));
 	thread_context->block_dup_map = NULL;
+	thread_context->encrypted_dirs = NULL;
 
 	retval = e2fsck_allocate_block_bitmap(global_ctx->fs,
 				_("in-use block map"), EXT2FS_BMAP64_RBTREE,
@@ -3064,6 +3065,25 @@ static int e2fsck_pass1_merge_dirs_to_hash(e2fsck_t global_ctx, e2fsck_t thread_
 
 		ext2fs_badblocks_list_free(thread_ctx->dirs_to_hash);
 		thread_ctx->dirs_to_hash = 0;
+	}
+	return retval;
+}
+
+static errcode_t e2fsck_pass1_merge_encrypted_dirs(e2fsck_t global_ctx,
+						   e2fsck_t thread_ctx)
+{
+	int retval = 0;
+
+	if (thread_ctx->encrypted_dirs) {
+		if (!global_ctx->encrypted_dirs)
+			retval = ext2fs_badblocks_copy(thread_ctx->encrypted_dirs,
+						       &global_ctx->encrypted_dirs);
+		else
+			retval = ext2fs_badblocks_merge(thread_ctx->encrypted_dirs,
+							global_ctx->encrypted_dirs);
+
+		ext2fs_badblocks_list_free(thread_ctx->encrypted_dirs);
+		thread_ctx->encrypted_dirs = 0;
 	}
 	return retval;
 }
@@ -3285,6 +3305,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	ext2_refcount_t ea_inode_refs = global_ctx->ea_inode_refs;
 	ext2fs_block_bitmap  block_found_map = global_ctx->block_found_map;
 	ext2fs_block_bitmap  block_dup_map = global_ctx->block_dup_map;
+	ext2_u32_list encrypted_dirs = global_ctx->encrypted_dirs;
 
 #ifdef HAVE_SETJMP_H
 	jmp_buf		 old_jmp;
@@ -3365,6 +3386,13 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	e2fsck_pass1_merge_ea_refcount(global_ctx, thread_ctx);
 	global_ctx->qctx = qctx;
 	e2fsck_pass1_merge_quota_ctx(global_ctx, thread_ctx);
+	global_ctx->encrypted_dirs = encrypted_dirs;
+	retval = e2fsck_pass1_merge_encrypted_dirs(global_ctx, thread_ctx);
+	if (retval) {
+		com_err(global_ctx->program_name, 0,
+			_("while merging encrypted dirs\n"));
+		return retval;
+	}
 	global_ctx->invalid_block_bitmap_flag = invalid_block_bitmap_flag;
 	global_ctx->invalid_inode_bitmap_flag = invalid_inode_bitmap_flag;
 	global_ctx->invalid_inode_table_flag = invalid_inode_table_flag;
