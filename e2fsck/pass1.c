@@ -3005,6 +3005,8 @@ static errcode_t e2fsck_pass1_merge_context(e2fsck_t global_ctx,
 	global_ctx->fs_fragmented_dir += thread_ctx->fs_fragmented_dir;
 	global_ctx->large_files += thread_ctx->large_files;
 	global_ctx->flags |= thread_ctx->flags;
+	/* threads might enable E2F_OPT_YES */
+	global_ctx->options |= thread_ctx->options;
 
 	e2fsck_pass1_merge_dir_info(global_ctx, thread_ctx);
 	e2fsck_pass1_merge_dx_dir(global_ctx, thread_ctx);
