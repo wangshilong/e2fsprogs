@@ -3209,6 +3209,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	ext2fs_block_bitmap  block_found_map = global_ctx->block_found_map;
 	ext2fs_block_bitmap  block_dup_map = global_ctx->block_dup_map;
 	ext2_u32_list encrypted_dirs = global_ctx->encrypted_dirs;
+	int options = global_ctx->options;
 
 #ifdef HAVE_SETJMP_H
 	jmp_buf		 old_jmp;
@@ -3262,7 +3263,8 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	global_ctx->fs_fragmented += fs_fragmented;
 	global_ctx->fs_fragmented_dir += fs_fragmented_dir;
 	global_ctx->large_files += large_files;
-
+	/* threads might enable E2F_OPT_YES */
+	global_ctx->options |= options;
 	global_ctx->flags |= flags;
 
 	retval = e2fsck_pass1_merge_fs(global_fs, thread_fs);
