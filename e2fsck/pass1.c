@@ -3275,6 +3275,12 @@ static errcode_t e2fsck_pass1_merge_context(e2fsck_t global_ctx,
 	global_ctx->flags |= thread_ctx->flags;
 	/* threads might enable E2F_OPT_YES */
 	global_ctx->options |= thread_ctx->options;
+	/*
+	 * The l+f inode may have been cleared, so zap it now and
+	 * later passes will recalculate it if necessary
+	 */
+	global_ctx->lost_and_found = 0;
+
  	e2fsck_pass1_merge_dir_info(global_ctx, thread_ctx);
  	e2fsck_pass1_merge_dx_dir(global_ctx, thread_ctx);
 	retval = e2fsck_pass1_merge_fs(global_ctx->fs, thread_ctx->fs);
