@@ -2986,6 +2986,7 @@ static errcode_t e2fsck_pass1_merge_context(e2fsck_t global_ctx,
 					    e2fsck_t thread_ctx)
 {
 	errcode_t retval;
+	int i;
 
 	global_ctx->fs_directory_count += thread_ctx->fs_directory_count;
 	global_ctx->fs_regular_count += thread_ctx->fs_regular_count;
@@ -3012,6 +3013,10 @@ static errcode_t e2fsck_pass1_merge_context(e2fsck_t global_ctx,
 	 * later passes will recalculate it if necessary
 	 */
 	global_ctx->lost_and_found = 0;
+	/* merge extent depth count */
+	for (i = 0; i < MAX_EXTENT_DEPTH_COUNT; i++)
+		global_ctx->extent_depth_count[i] +=
+			thread_ctx->extent_depth_count[i];
 
 	e2fsck_pass1_merge_dir_info(global_ctx, thread_ctx);
 	e2fsck_pass1_merge_dx_dir(global_ctx, thread_ctx);
