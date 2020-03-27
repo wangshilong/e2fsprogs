@@ -227,91 +227,153 @@ typedef struct e2fsck_struct *e2fsck_t;
 #define MAX_EXTENT_DEPTH_COUNT 5
 
 struct e2fsck_struct {
-	ext2_filsys fs;
-	const char *program_name;
-	char *filesystem_name;
-	char *device_name;
-	char *io_options;
-	FILE	*logf;
-	char	*log_fn;
-	FILE	*problem_logf;
-	char	*problem_log_fn;
-	int	flags;		/* E2fsck internal flags */
-	int	options;
-	unsigned blocksize;	/* blocksize */
-	blk64_t	use_superblock;	/* sb requested by user */
-	blk64_t	superblock;	/* sb used to open fs */
-	blk64_t	num_blocks;	/* Total number of blocks */
-	blk64_t	free_blocks;
-	ext2_ino_t free_inodes;
-	int	mount_flags;
-	int	openfs_flags;
-	blkid_cache blkid;	/* blkid cache */
-
+	/* ---- Following fields are never updated during the pass1 ---- */
+	const char		*program_name;
+	char			*filesystem_name;
+	char			*device_name;
+	char			*io_options;
+	int			 options; /* E2F_OPT_* flags */
+	int			 blocksize; /* blocksize */
+	blk64_t			 use_superblock; /* sb requested by user */
+	blk64_t			 superblock; /* sb used to open fs */
+	blk64_t			 num_blocks; /* Total number of blocks */
+	blk64_t			 free_blocks;
+	ext2_ino_t		 free_inodes;
+	int			 mount_flags;
+	int			 openfs_flags;
+	blkid_cache		 blkid; /* blkid cache */
 #ifdef HAVE_SETJMP_H
-	jmp_buf	abort_loc;
+	jmp_buf			 abort_loc;
 #endif
-	unsigned long abort_code;
+#ifdef RESOURCE_TRACK
+	/*
+	 * For timing purposes
+	 */
+	struct resource_track	global_rtrack;
+#endif
+	int			bad_lost_and_found;
+	/*
+	 * Tuning parameters
+	 */
+	int			process_inode_size;
+	int			inode_buffer_blocks;
+	unsigned int		htree_slack_percentage;
 
+	/*
+	 * ext3 journal support
+	 */
+	io_channel		journal_io;
+	char			*journal_name;
+	/* misc fields */
+	time_t			now;
+	/* For working around buggy init scripts */
+	time_t			time_fudge;
+
+	int			ext_attr_ver;
+	int			blocks_per_page;
+	/* Are we connected directly to a tty? */
+	int			interactive;
+	char			start_meta[2], stop_meta[2];
+	/*
+	 * For the use of callers of the e2fsck functions; not used by
+	 * e2fsck functions themselves.
+	 */
+	void			*priv_data;
+	/* Undo file */
+	char			*undo_file;
+	/* How much are we allowed to readahead? */
+	unsigned long long	readahead_kb;
+
+	/* ---- Following fields are shared by different threads for pass1 -*/
+	/* E2fsck internal flags */
+	int			flags;
+	/*
+	 * How we display the progress update (for unix)
+	 */
+	int			progress_fd;
+	int			progress_pos;
+	int			progress_last_percent;
+	unsigned int		progress_last_time;
 	int (*progress)(e2fsck_t ctx, int pass, unsigned long cur,
 			unsigned long max);
+	/* Metadata blocks */
+	ext2fs_block_bitmap	block_metadata_map;
+	profile_t		profile;
+	/* Reserve blocks for root and l+f re-creation */
+	blk64_t			root_repair_block, lnf_repair_block;
+	/*
+	 * Location of the lost and found directory
+	 */
+	ext2_ino_t		lost_and_found;
 
-	ext2fs_inode_bitmap inode_used_map; /* Inodes which are in use */
-	ext2fs_inode_bitmap inode_bad_map; /* Inodes which are bad somehow */
-	ext2fs_inode_bitmap inode_dir_map; /* Inodes which are directories */
-	ext2fs_inode_bitmap inode_bb_map; /* Inodes which are in bad blocks */
-	ext2fs_inode_bitmap inode_imagic_map; /* AFS inodes */
-	ext2fs_inode_bitmap inode_reg_map; /* Inodes which are regular files*/
+	/* ---- Following fields are seperated for each thread for pass1- */
+	ext2_filsys		 fs;
+	FILE			*logf;
+	char			*log_fn;
+	FILE			*problem_logf;
+	char			*problem_log_fn;
 
-	ext2fs_block_bitmap block_found_map; /* Blocks which are in use */
-	ext2fs_block_bitmap block_dup_map; /* Blks referenced more than once */
-	ext2fs_block_bitmap block_ea_map; /* Blocks which are used by EA's */
+	/* Inodes which are in use */
+	ext2fs_inode_bitmap	inode_used_map;
+	/* Inodes which are bad somehow */
+	ext2fs_inode_bitmap	inode_bad_map;
+	/* Inodes which are directories */
+	ext2fs_inode_bitmap	inode_dir_map;
+	/* Inodes which are in bad blocks */
+	ext2fs_inode_bitmap	inode_bb_map;
+	/* AFS inodes */
+	ext2fs_inode_bitmap	inode_imagic_map;
+	/* Inodes which are regular files */
+	ext2fs_inode_bitmap	inode_reg_map;
+	/* Inodes to rebuild extent trees */
+	ext2fs_inode_bitmap	inodes_to_rebuild;
+	/* Blocks which are in use */
+	ext2fs_block_bitmap	block_found_map;
+	/* Blks referenced more than once */
+	ext2fs_block_bitmap	block_dup_map;
+	/* Blocks which are used by EA's */
+	ext2fs_block_bitmap	block_ea_map;
 
 	/*
 	 * Inode count arrays
 	 */
-	ext2_icount_t	inode_count;
-	ext2_icount_t inode_link_info;
+	ext2_icount_t		inode_count;
+	ext2_icount_t		inode_link_info;
 
-	ext2_refcount_t	refcount;
-	ext2_refcount_t refcount_extra;
+	ext2_refcount_t		refcount;
+	ext2_refcount_t		refcount_extra;
 
 	/*
 	 * Quota blocks and inodes to be charged for each ea block.
 	 */
-	ext2_refcount_t ea_block_quota_blocks;
-	ext2_refcount_t ea_block_quota_inodes;
+	ext2_refcount_t		ea_block_quota_blocks;
+	ext2_refcount_t		ea_block_quota_inodes;
 
 	/*
 	 * ea_inode references from attr entries.
 	 */
-	ext2_refcount_t ea_inode_refs;
+	ext2_refcount_t		ea_inode_refs;
 
 	/*
 	 * Array of flags indicating whether an inode bitmap, block
 	 * bitmap, or inode table is invalid
 	 */
-	int *invalid_inode_bitmap_flag;
-	int *invalid_block_bitmap_flag;
-	int *invalid_inode_table_flag;
-	int invalid_bitmaps;	/* There are invalid bitmaps/itable */
+	int			*invalid_inode_bitmap_flag;
+	int			*invalid_block_bitmap_flag;
+	int			*invalid_inode_table_flag;
+	/* There are invalid bitmaps/itable */
+	int			invalid_bitmaps;
 
 	/*
 	 * Block buffer
 	 */
-	char *block_buf;
+	char			*block_buf;
 
 	/*
 	 * For pass1_check_directory and pass1_get_blocks
 	 */
-	ext2_ino_t stashed_ino;
-	struct ext2_inode *stashed_inode;
-
-	/*
-	 * Location of the lost and found directory
-	 */
-	ext2_ino_t lost_and_found;
-	int bad_lost_and_found;
+	ext2_ino_t		stashed_ino;
+	struct ext2_inode	*stashed_inode;
 
 	/*
 	 * Directory information
@@ -328,7 +390,7 @@ struct e2fsck_struct {
 	/*
 	 * Directories to hash
 	 */
-	ext2_u32_list	dirs_to_hash;
+	ext2_u32_list		dirs_to_hash;
 
 	/*
 	 * Encrypted file information
@@ -336,88 +398,30 @@ struct e2fsck_struct {
 	struct encrypted_file_info *encrypted_files;
 
 	/*
-	 * Tuning parameters
-	 */
-	int process_inode_size;
-	int inode_buffer_blocks;
-	unsigned int htree_slack_percentage;
-
-	/*
-	 * ext3 journal support
-	 */
-	io_channel	journal_io;
-	char	*journal_name;
-
-	/*
 	 * Ext4 quota support
 	 */
-	quota_ctx_t qctx;
-#ifdef RESOURCE_TRACK
-	/*
-	 * For timing purposes
-	 */
-	struct resource_track	global_rtrack;
-#endif
+	quota_ctx_t		qctx;
 
-	/*
-	 * How we display the progress update (for unix)
-	 */
-	int progress_fd;
-	int progress_pos;
-	int progress_last_percent;
-	unsigned int progress_last_time;
-	int interactive;	/* Are we connected directly to a tty? */
-	char start_meta[2], stop_meta[2];
-
-	/* File counts */
-	__u32 fs_directory_count;
-	__u32 fs_regular_count;
-	__u32 fs_blockdev_count;
-	__u32 fs_chardev_count;
-	__u32 fs_links_count;
-	__u32 fs_symlinks_count;
-	__u32 fs_fast_symlinks_count;
-	__u32 fs_fifo_count;
-	__u32 fs_total_count;
-	__u32 fs_badblocks_count;
-	__u32 fs_sockets_count;
-	__u32 fs_ind_count;
-	__u32 fs_dind_count;
-	__u32 fs_tind_count;
-	__u32 fs_fragmented;
-	__u32 fs_fragmented_dir;
-	__u32 large_files;
-	__u32 fs_ext_attr_inodes;
-	__u32 fs_ext_attr_blocks;
-	__u32 extent_depth_count[MAX_EXTENT_DEPTH_COUNT];
-
-	/* misc fields */
-	time_t now;
-	time_t time_fudge;	/* For working around buggy init scripts */
-	int ext_attr_ver;
-	profile_t	profile;
-	int blocks_per_page;
-
-	/* Reserve blocks for root and l+f re-creation */
-	blk64_t root_repair_block, lnf_repair_block;
-
-	/*
-	 * For the use of callers of the e2fsck functions; not used by
-	 * e2fsck functions themselves.
-	 */
-	void *priv_data;
-	ext2fs_block_bitmap block_metadata_map; /* Metadata blocks */
-
-	/* How much are we allowed to readahead? */
-	unsigned long long readahead_kb;
-
-	/*
-	 * Inodes to rebuild extent trees
-	 */
-	ext2fs_inode_bitmap inodes_to_rebuild;
-
-	/* Undo file */
-	char *undo_file;
+	__u32			fs_directory_count;
+	__u32			fs_regular_count;
+	__u32			fs_blockdev_count;
+	__u32			fs_chardev_count;
+	__u32			fs_links_count;
+	__u32			fs_symlinks_count;
+	__u32			fs_fast_symlinks_count;
+	__u32			fs_fifo_count;
+	__u32			fs_total_count;
+	__u32			fs_badblocks_count;
+	__u32			fs_sockets_count;
+	__u32			fs_ind_count;
+	__u32			fs_dind_count;
+	__u32			fs_tind_count;
+	__u32			fs_fragmented;
+	__u32			fs_fragmented_dir;
+	__u32			large_files;
+	__u32			fs_ext_attr_inodes;
+	__u32			fs_ext_attr_blocks;
+	__u32			extent_depth_count[MAX_EXTENT_DEPTH_COUNT];
 };
 
 /* Data structures to evaluate whether an extent tree needs rebuilding. */
