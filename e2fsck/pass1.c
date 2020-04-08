@@ -3141,6 +3141,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	 * so please do NOT leave any garbage behind after returning.
 	 */
 	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, inode_used_map);
+	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, inode_bad_map);
 	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, inode_dir_map);
 	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, inode_bb_map);
 	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, inode_imagic_map);
