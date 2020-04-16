@@ -1579,9 +1579,12 @@ static void _e2fsck_pass1_post(e2fsck_t ctx)
 {
 	struct problem_context pctx;
 	ext2_filsys fs = ctx->fs;
+	char *block_buf;
 
-	char *block_buf =
-		(char *)e2fsck_allocate_memory(ctx, ctx->fs->blocksize * 3,
+	if (e2fsck_should_abort(ctx))
+		return;
+
+	block_buf = (char *)e2fsck_allocate_memory(ctx, ctx->fs->blocksize * 3,
 					      "block interate buffer");
 	reserve_block_for_root_repair(ctx);
 	reserve_block_for_lnf_repair(ctx);
@@ -1659,6 +1662,8 @@ static void _e2fsck_pass1_post(e2fsck_t ctx)
 		ext2fs_free_mem(&block_buf);
 		ctx->flags &= ~E2F_FLAG_DUP_BLOCK;
 	}
+
+	ctx->flags |= E2F_FLAG_ALLOC_OK;
 }
 
 
@@ -2560,7 +2565,6 @@ void _e2fsck_pass1(e2fsck_t ctx)
 		goto endit;
 	}
 
-	ctx->flags |= E2F_FLAG_ALLOC_OK;
 	ext2fs_free_mem(&inodes_to_process);
 endit:
 	e2fsck_use_inode_shortcuts(ctx, 0);
