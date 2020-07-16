@@ -389,7 +389,7 @@ int find_entry_insert(e2fsck_t dest_ctx,
 		return ret;
 
 	/* move forward */
-	for (m = dest_info->file_ranges_count; m >= l; m--)
+	for (m = dest_info->file_ranges_count - 1; m >= l; m--)
 		dest_info->file_ranges[m + 1] =
 			dest_info->file_ranges[m];
 
