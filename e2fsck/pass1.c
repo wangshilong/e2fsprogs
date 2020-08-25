@@ -3404,6 +3404,9 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	global_ctx->invalid_bitmaps = invalid_bitmaps;
 	e2fsck_pass1_merge_invalid_bitmaps(global_ctx, thread_ctx);
 
+	if (thread_ctx->min_extra_isize < global_ctx->min_extra_isize)
+		global_ctx->min_extra_isize = thread_ctx->min_extra_isize;
+
 	/*
 	 * PASS1_COPY_CTX_BITMAP might return directly from this function,
 	 * so please do NOT leave any garbage behind after returning.
@@ -3416,6 +3419,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, inode_reg_map);
 	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, inodes_to_rebuild);
 	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, block_ea_map);
+	PASS1_MERGE_CTX_BITMAP(global_ctx, thread_ctx, expand_eisize_map);
 
 	/*
 	 * This need be done after merging block_ea_map
@@ -3455,6 +3459,7 @@ static int e2fsck_pass1_thread_join(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 	PASS1_FREE_CTX_BITMAP(thread_ctx, block_found_map);
 	PASS1_FREE_CTX_BITMAP(thread_ctx, block_ea_map);
 	PASS1_FREE_CTX_BITMAP(thread_ctx, inode_bad_map);
+	PASS1_FREE_CTX_BITMAP(thread_ctx, expand_eisize_map);
 	ext2fs_free_icount(thread_ctx->inode_count);
 	ext2fs_free_icount(thread_ctx->inode_link_info);
 	ext2fs_free_icount(thread_ctx->inode_badness);
