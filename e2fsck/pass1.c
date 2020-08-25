@@ -2666,6 +2666,11 @@ static errcode_t e2fsck_pass1_merge_icounts(e2fsck_t global_ctx, e2fsck_t thread
 		return ret;
 	ret = e2fsck_pass1_merge_icount(&global_ctx->inode_link_info,
 					&thread_ctx->inode_link_info);
+	if (ret)
+		return ret;
+
+	ret = e2fsck_pass1_merge_icount(&global_ctx->inode_badness,
+					&thread_ctx->inode_badness);
 
 	return ret;
 }
@@ -2692,6 +2697,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	ext2fs_block_bitmap inodes_to_rebuild = global_ctx->inodes_to_rebuild;
 	ext2_icount_t inode_count = global_ctx->inode_count;
 	ext2_icount_t inode_link_info = global_ctx->inode_link_info;
+	ext2_icount_t inode_badness = global_ctx->inode_badness;
 
 #ifdef HAVE_SETJMP_H
 	jmp_buf		 old_jmp;
@@ -2718,6 +2724,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	e2fsck_pass1_merge_dir_info(global_ctx, thread_ctx);
 	global_ctx->inode_count = inode_count;
 	global_ctx->inode_link_info = inode_link_info;
+	global_ctx->inode_badness = inode_badness;
 
 	/* Keep the global singal flags*/
 	global_ctx->flags |= (flags & E2F_FLAG_SIGNAL_MASK) |
@@ -2826,6 +2833,7 @@ static int e2fsck_pass1_thread_join(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 	e2fsck_free_dir_info(thread_ctx);
 	ext2fs_free_icount(thread_ctx->inode_count);
 	ext2fs_free_icount(thread_ctx->inode_link_info);
+	ext2fs_free_icount(thread_ctx->inode_badness);
 	ext2fs_free_mem(&thread_ctx);
 
 	return retval;
