@@ -3045,6 +3045,7 @@ static errcode_t e2fsck_pass1_merge_icounts(e2fsck_t global_ctx, e2fsck_t thread
 {
 	PASS1_MERGE_CTX_ICOUNT(global_ctx, thread_ctx, inode_count);
 	PASS1_MERGE_CTX_ICOUNT(global_ctx, thread_ctx, inode_link_info);
+	PASS1_MERGE_CTX_ICOUNT(global_ctx, thread_ctx, inode_badness);
 	return 0;
 }
 
@@ -3272,6 +3273,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	ext2fs_inode_bitmap inode_bad_map = global_ctx->inode_bad_map;
 	ext2_icount_t inode_count = global_ctx->inode_count;
 	ext2_icount_t inode_link_info = global_ctx->inode_link_info;
+	ext2_icount_t inode_badness = global_ctx->inode_badness;
 	__u32	fs_directory_count = global_ctx->fs_directory_count;
 	__u32	fs_regular_count = global_ctx->fs_regular_count;
 	__u32	fs_blockdev_count = global_ctx->fs_blockdev_count;
@@ -3334,6 +3336,7 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	global_ctx->dx_dir_info_size = dx_dir_info_size;
 	e2fsck_pass1_merge_dx_dir(global_ctx, thread_ctx);
 	global_ctx->inode_count = inode_count;
+	global_ctx->inode_badness = inode_badness;
 	global_ctx->inode_link_info = inode_link_info;
 	global_ctx->refcount = refcount;
 	global_ctx->refcount_extra = refcount_extra;
@@ -3454,6 +3457,7 @@ static int e2fsck_pass1_thread_join(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 	PASS1_FREE_CTX_BITMAP(thread_ctx, inode_bad_map);
 	ext2fs_free_icount(thread_ctx->inode_count);
 	ext2fs_free_icount(thread_ctx->inode_link_info);
+	ext2fs_free_icount(thread_ctx->inode_badness);
 	if (thread_ctx->refcount) {
 		ea_refcount_free(thread_ctx->refcount);
 		thread_ctx->refcount = NULL;

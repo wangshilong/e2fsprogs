@@ -79,6 +79,10 @@ errcode_t e2fsck_reset_context(e2fsck_t ctx)
 		ext2fs_free_icount(ctx->inode_link_info);
 		ctx->inode_link_info = 0;
 	}
+	if (ctx->inode_badness) {
+		ext2fs_free_icount(ctx->inode_badness);
+		ctx->inode_badness = 0;
+	}
 	if (ctx->journal_io) {
 		if (ctx->fs && ctx->fs->io != ctx->journal_io)
 			io_channel_close(ctx->journal_io);
