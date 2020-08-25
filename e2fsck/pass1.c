@@ -2839,6 +2839,7 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx, e2fsck_t *thre
 	memcpy(thread_context, global_ctx, sizeof(struct e2fsck_struct));
 	thread_context->block_dup_map = NULL;
 	thread_context->encrypted_dirs = NULL;
+	thread_context->expand_eisize_map = NULL;
 
 	retval = e2fsck_allocate_block_bitmap(global_ctx->fs,
 				_("in-use block map"), EXT2FS_BMAP64_RBTREE,
@@ -3309,6 +3310,9 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	global_ctx->invalid_bitmaps = invalid_bitmaps;
 	e2fsck_pass1_merge_invalid_bitmaps(global_ctx, thread_ctx);
 
+	if (thread_ctx->min_extra_isize < global_ctx->min_extra_isize)
+		global_ctx->min_extra_isize = thread_ctx->min_extra_isize;
+
 	retval = e2fsck_pass1_merge_bitmap(global_fs,
 				&thread_ctx->inode_used_map,
 				&global_ctx->inode_used_map);
@@ -3348,6 +3352,12 @@ static int e2fsck_pass1_thread_join_one(e2fsck_t global_ctx, e2fsck_t thread_ctx
 	retval = e2fsck_pass1_merge_bitmap(global_fs,
 				&thread_ctx->block_ea_map,
 				&global_ctx->block_ea_map);
+	if (retval)
+		return retval;
+
+	retval = e2fsck_pass1_merge_bitmap(global_fs,
+				&thread_ctx->expand_eisize_map,
+				&global_ctx->expand_eisize_map);
 	if (retval)
 		return retval;
 
@@ -3392,6 +3402,7 @@ static int e2fsck_pass1_thread_join(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 	e2fsck_pass1_free_bitmap(&thread_ctx->inodes_to_rebuild);
 	e2fsck_pass1_free_bitmap(&thread_ctx->block_found_map);
 	e2fsck_pass1_free_bitmap(&thread_ctx->block_ea_map);
+	e2fsck_pass1_free_bitmap(&thread_ctx->expand_eisize_map);
 	if (thread_ctx->refcount)
 		ea_refcount_free(thread_ctx->refcount);
 	if (thread_ctx->refcount_extra)
