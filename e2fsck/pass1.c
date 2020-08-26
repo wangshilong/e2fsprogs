@@ -2869,24 +2869,27 @@ static int _e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 	PASS1_MERGE_FS_BITMAP(dest, src, block_map);
 
 	if (src->dblist) {
-		retval = ext2fs_copy_dblist(src->dblist, &dest->dblist);
-		if (retval)
-			return retval;
-		/* The ext2fs_copy_dblist() uses the src->fs as the fs */
-		dest->dblist->fs = dest;
-
-		ext2fs_free_dblist(src->dblist);
-		src->dblist = NULL;
+		if (dest->dblist) {
+			retval = ext2fs_merge_dblist(src->dblist, dest->dblist);
+			if (retval)
+				return retval;
+		} else {
+			/* The ext2fs_copy_dblist() uses the src->fs as the fs */
+			dest->dblist = src->dblist;
+			dest->dblist->fs = dest;
+			src->dblist = NULL;
+		}
 	}
 
 	if (src->badblocks) {
-		retval = ext2fs_badblocks_copy(src->badblocks, &dest->badblocks);
+		if (dest->badblocks == NULL)
+			retval = ext2fs_badblocks_copy(src->badblocks, &dest->badblocks);
+		else
+			retval = ext2fs_badblocks_merge(src->badblocks, dest->badblocks);
 		if (retval)
 			goto out_dblist;
-
-		ext2fs_badblocks_list_free(src->badblocks);
-		src->badblocks = NULL;
 	}
+
 	io_channel_close(src->io);
 	return retval;
 
