@@ -38,6 +38,7 @@ void e2fsck_pass5(e2fsck_t ctx)
 #ifdef MTRACE
 	mtrace_print("Pass 5");
 #endif
+	struct resource_track	rtrack1;
 
 	init_resource_track(&rtrack, ctx->fs->io);
 	clear_problem_context(&pctx);
@@ -49,23 +50,37 @@ void e2fsck_pass5(e2fsck_t ctx)
 		if ((ctx->progress)(ctx, 5, 0, ctx->fs->group_desc_count*2))
 			return;
 
+	init_resource_track(&rtrack1, ctx->fs->io);
 	e2fsck_read_bitmaps(ctx);
+	print_resource_track(ctx, _("pass5 read bitmaps"), &rtrack1, ctx->fs->io);
 
+	init_resource_track(&rtrack1, ctx->fs->io);
 	check_block_bitmaps(ctx);
+	print_resource_track(ctx, _("pass5 check block bitmaps"), &rtrack1, ctx->fs->io);
 	if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 		return;
+	init_resource_track(&rtrack1, ctx->fs->io);
 	check_inode_bitmaps(ctx);
+	print_resource_track(ctx, _("pass5 check inode bitmaps"), &rtrack1, ctx->fs->io);
 	if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 		return;
+	init_resource_track(&rtrack1, ctx->fs->io);
 	check_inode_end(ctx);
+	print_resource_track(ctx, _("pass5 check inode end"), &rtrack1, ctx->fs->io);
 	if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 		return;
+	init_resource_track(&rtrack1, ctx->fs->io);
 	check_block_end(ctx);
+	print_resource_track(ctx, _("pass5 check block end"), &rtrack1, ctx->fs->io);
 	if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 		return;
 
+	init_resource_track(&rtrack1, ctx->fs->io);
 	check_inode_bitmap_checksum(ctx);
+	print_resource_track(ctx, _("pass5 check inode bitmap checksum"), &rtrack1, ctx->fs->io);
+	init_resource_track(&rtrack1, ctx->fs->io);
 	check_block_bitmap_checksum(ctx);
+	print_resource_track(ctx, _("pass5 check block bitmap checksum"), &rtrack1, ctx->fs->io);
 
 	ext2fs_free_inode_bitmap(ctx->inode_used_map);
 	ctx->inode_used_map = 0;
