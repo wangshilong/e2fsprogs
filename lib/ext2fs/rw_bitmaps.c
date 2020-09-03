@@ -338,8 +338,8 @@ static errcode_t read_bitmaps_range_start(ext2_filsys fs, int do_inode, int do_b
 		goto success_cleanup;
 	}
 
-	blk_itr += (block_nbytes << 3) * start;
-	ino_itr += (inode_nbytes << 3) * start;
+	blk_itr += ((blk64_t)start * (block_nbytes << 3));
+	ino_itr += ((blk64_t)start * (inode_nbytes << 3));
 	for (i = start; i <= end; i++) {
 		if (block_bitmap) {
 			blk = ext2fs_block_bitmap_loc(fs, i);
