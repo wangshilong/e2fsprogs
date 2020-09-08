@@ -263,7 +263,8 @@ cleanup:
 }
 
 static errcode_t read_bitmaps_range_start(ext2_filsys fs, int do_inode, int do_block,
-					  dgrp_t start, dgrp_t end, pthread_mutex_t *mutex)
+					  dgrp_t start, dgrp_t end, pthread_mutex_t *mutex,
+					  io_channel io)
 {
 	dgrp_t i;
 	char *block_bitmap = 0, *inode_bitmap = 0;
@@ -279,11 +280,17 @@ static errcode_t read_bitmaps_range_start(ext2_filsys fs, int do_inode, int do_b
 	blk64_t   blk_cnt;
 	ext2_ino_t ino_itr = 1;
 	ext2_ino_t ino_cnt;
+	io_channel this_io;
+
+	if (!io)
+		this_io = fs->io;
+	else
+		this_io = io;
 
 	csum_flag = ext2fs_has_group_desc_csum(fs);
 
 	if (do_block) {
-		retval = io_channel_alloc_buf(fs->io, 0, &block_bitmap);
+		retval = io_channel_alloc_buf(this_io, 0, &block_bitmap);
 		if (retval)
 			goto cleanup;
 	} else {
@@ -291,13 +298,14 @@ static errcode_t read_bitmaps_range_start(ext2_filsys fs, int do_inode, int do_b
 	}
 
 	if (do_inode) {
-		retval = io_channel_alloc_buf(fs->io, 0, &inode_bitmap);
+		retval = io_channel_alloc_buf(this_io, 0, &inode_bitmap);
 		if (retval)
 			goto cleanup;
 	} else {
 		inode_nbytes = 0;
 	}
 
+	/* io should be null */
 	if (fs->flags & EXT2_FLAG_IMAGE_FILE) {
 		blk = (ext2fs_le32_to_cpu(fs->image_header->offset_inodemap) / fs->blocksize);
 		ino_cnt = fs->super->s_inodes_count;
@@ -349,7 +357,7 @@ static errcode_t read_bitmaps_range_start(ext2_filsys fs, int do_inode, int do_b
 			    (blk >= ext2fs_blocks_count(fs->super)))
 				blk = 0;
 			if (blk) {
-				retval = io_channel_read_blk64(fs->io, blk,
+				retval = io_channel_read_blk64(this_io, blk,
 							       1, block_bitmap);
 				if (retval) {
 					retval = EXT2_ET_BLOCK_BITMAP_READ;
@@ -388,7 +396,7 @@ static errcode_t read_bitmaps_range_start(ext2_filsys fs, int do_inode, int do_b
 			    (blk >= ext2fs_blocks_count(fs->super)))
 				blk = 0;
 			if (blk) {
-				retval = io_channel_read_blk64(fs->io, blk,
+				retval = io_channel_read_blk64(this_io, blk,
 							       1, inode_bitmap);
 				if (retval) {
 					retval = EXT2_ET_INODE_BITMAP_READ;
@@ -488,7 +496,7 @@ static errcode_t read_bitmaps_range(ext2_filsys fs, int do_inode, int do_block,
 	if (retval)
 		return retval;
 
-	retval = read_bitmaps_range_start(fs, do_inode, do_block, start, end, NULL);
+	retval = read_bitmaps_range_start(fs, do_inode, do_block, start, end, NULL, NULL);
 	if (retval)
 		return retval;
 
@@ -503,6 +511,7 @@ struct read_bitmaps_thread_info {
 	dgrp_t		rbt_grp_end;
 	errcode_t	rbt_retval;
 	pthread_mutex_t *rbt_mutex;
+	io_channel      rbt_io;
 };
 
 static void* read_bitmaps_thread(void *data)
@@ -512,7 +521,7 @@ static void* read_bitmaps_thread(void *data)
 	rbt->rbt_retval = read_bitmaps_range_start(rbt->rbt_fs,
 				rbt->rbt_do_inode, rbt->rbt_do_block,
 				rbt->rbt_grp_start, rbt->rbt_grp_end,
-				rbt->rbt_mutex);
+				rbt->rbt_mutex, rbt->rbt_io);
 	return NULL;
 }
 
@@ -527,6 +536,7 @@ static errcode_t read_bitmaps(ext2_filsys fs, int do_inode, int do_block)
 	errcode_t rc;
 	dgrp_t average_group;
 	int i;
+	io_manager manager = unix_io_manager;
 
 	if (num_threads <= 1 || (fs->flags & EXT2_FLAG_IMAGE_FILE))
 		return read_bitmaps_range(fs, do_inode, do_block, 0, fs->group_desc_count - 1);
@@ -567,10 +577,17 @@ static errcode_t read_bitmaps(ext2_filsys fs, int do_inode, int do_block)
 			thread_infos[i].rbt_grp_end = fs->group_desc_count - 1;
 		else
 			thread_infos[i].rbt_grp_end = average_group * (i + 1);
-		retval = pthread_create(&thread_ids[i], &attr,
-					&read_bitmaps_thread, &thread_infos[i]);
+		retval = manager->open(fs->device_name, IO_FLAG_RW,
+					&thread_infos[i].rbt_io);
 		if (retval)
 			break;
+		io_channel_set_blksize(thread_infos[i].rbt_io, fs->io->block_size);
+		retval = pthread_create(&thread_ids[i], &attr,
+					&read_bitmaps_thread, &thread_infos[i]);
+		if (retval) {
+			io_channel_close(thread_infos[i].rbt_io);
+			break;
+		}
 	}
 	for (i = 0; i < num_threads; i++) {
 		if (!thread_ids[i])
@@ -581,6 +598,7 @@ static errcode_t read_bitmaps(ext2_filsys fs, int do_inode, int do_block)
 		rc = thread_infos[i].rbt_retval;
 		if (rc && !retval)
 			retval = rc;
+		io_channel_close(thread_infos[i].rbt_io);
 	}
 out:
 	rc = pthread_attr_destroy(&attr);
