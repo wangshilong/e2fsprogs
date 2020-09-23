@@ -1702,7 +1702,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 	struct ea_quota	ea_ibody_quota;
 	int		inode_exp = 0;
 	struct process_inode_block *inodes_to_process;
-	int		process_inode_count;
+	int		process_inode_count, check_mmp;
 
 	init_resource_track(&rtrack, ctx->fs->io);
 	clear_problem_context(&pctx);
@@ -1851,8 +1851,33 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 #endif
 
 	while (1) {
+		check_mmp = 0;
 		e2fsck_pass1_check_lock(ctx);
-		if (ino % (fs->super->s_inodes_per_group * 4) == 1) {
+#ifdef	CONFIG_PFSCK
+		if (!ctx->mmp_update_thread) {
+			e2fsck_pass1_block_map_w_lock(ctx);
+			if (!ctx->mmp_update_thread) {
+				if (ctx->global_ctx)
+					ctx->mmp_update_thread =
+						ctx->thread_info.et_thread_index + 1;
+				else
+					ctx->mmp_update_thread = 1;
+				check_mmp = 1;
+			}
+			e2fsck_pass1_block_map_w_unlock(ctx);
+		}
+
+		/* only one active thread could update mmp block. */
+		e2fsck_pass1_block_map_r_lock(ctx);
+		if (!ctx->global_ctx || ctx->mmp_update_thread ==
+			(ctx->thread_info.et_thread_index + 1))
+			check_mmp = 1;
+		e2fsck_pass1_block_map_r_unlock(ctx);
+#else
+		check_mmp = 1;
+#endif
+
+		if (check_mmp && (ino % (fs->super->s_inodes_per_group * 4) == 1)) {
 			if (e2fsck_mmp_update(fs))
 				fatal_error(ctx, 0);
 		}
@@ -2601,6 +2626,13 @@ endit:
 		print_resource_track(ctx, _("Pass 1"), &rtrack, ctx->fs->io);
 	else
 		ctx->invalid_bitmaps++;
+#ifdef	CONFIG_PFSCK
+	/* reset update_thread after this thread exit */
+	e2fsck_pass1_block_map_w_lock(ctx);
+	if (ctx->mmp_update_thread)
+		ctx->mmp_update_thread = 0;
+	e2fsck_pass1_block_map_w_unlock(ctx);
+#endif
 }
 
 #ifdef CONFIG_PFSCK

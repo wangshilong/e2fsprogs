@@ -499,6 +499,7 @@ struct e2fsck_struct {
 	__u32			extent_depth_count[MAX_EXTENT_DEPTH_COUNT];
 #ifdef CONFIG_PFSCK
 	__u32			 fs_num_threads;
+	__u32			 mmp_update_thread;
 	int			 fs_need_locking;
 	/* serialize fix operation for multiple threads */
 	pthread_rwlock_t	 fs_fix_rwlock;
