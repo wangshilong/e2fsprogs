@@ -186,7 +186,7 @@ void *e2fsck_allocate_memory(e2fsck_t ctx, unsigned long size,
 	printf("Allocating %u bytes for %s...\n", size, description);
 #endif
 	if (ext2fs_get_memzero(size, &ret)) {
-		sprintf(buf, "Can't allocate %u bytes for %s\n",
+		sprintf(buf, "Can't allocate %lu bytes for %s\n",
 			size, description);
 		fatal_error(ctx, buf);
 	}
